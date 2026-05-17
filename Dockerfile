@@ -52,8 +52,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
     python3 -m spacy download en_core_web_sm && \
     pip install -U --pre "yt-dlp[default]" && \
     pip install -U deno && \
+    pip install --no-cache-dir torch==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128
+    pip install --no-cache-dir torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 
     pip uninstall -y onnxruntime && \ 
     pip install -I --no-cache-dir onnxruntime-gpu 
+    
 # Delete's the default start.sh file from Runpod (so we can replace it with our own below)
 RUN rm ../start.sh
 
