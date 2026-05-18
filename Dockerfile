@@ -27,6 +27,7 @@ RUN apt-get update --yes --quiet && \
     build-essential \
     apt-utils \
     ca-certificates \
+    fonts-noto \
     curl && \
     add-apt-repository --yes ppa:deadsnakes/ppa && \
     apt-get update --yes --quiet && \
@@ -52,8 +53,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     python3 -m spacy download en_core_web_sm && \
     pip install -U --pre "yt-dlp[default]" && \
     pip install -U deno && \
-    pip install --no-cache-dir torch==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128
-    pip install --no-cache-dir torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 
+    pip install --no-cache-dir torch==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install --no-cache-dir torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \ 
     pip uninstall -y onnxruntime && \ 
     pip install -I --no-cache-dir onnxruntime-gpu 
     
@@ -65,7 +66,7 @@ COPY handler.py $WORKSPACE_DIR/handler.py
 COPY start.sh $WORKSPACE_DIR/start.sh
 COPY pull_changes.py $WORKSPACE_DIR/pull_changes.py
 RUN python3 $WORKSPACE_DIR/pull_changes.py
-RUN cp -R $WORKSPACE_DIR/karaoke_gen_changes/* /usr/local/lib/python3.12/dist-packages/karaoke_gen/
+RUN cp -R $WORKSPACE_DIR/karaoke_gen_changes/*  $WORKSPACE_DIR/venv/lib/python3.12/site-packages/
 # Make sure start.sh is executable
 RUN chmod +x start.sh
 
