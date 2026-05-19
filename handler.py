@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import shutil
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -191,7 +192,13 @@ print("------- -------------------- -------")
 
 if mode_to_run == "pod":
     async def main():
-        response = await handler({"input": {"action": "status", "job_id": "test-123"}})
+        if len(sys.argv) == 4:
+            _, url, artist, title = sys.argv
+            event = {"input": {"action": "create", "url": url, "artist": artist, "title": title}}
+        else:
+            print("Usage: python handler.py <url> <artist> <title>")
+            sys.exit(1)
+        response = await handler(event)
         print(response)
 
     asyncio.run(main())
