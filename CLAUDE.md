@@ -43,7 +43,7 @@ The `start.sh` also starts nginx and optionally sets up SSH (`PUBLIC_KEY` env va
 ## Key files
 
 - **`bootstrap.sh`** — The container CMD entry point (never updated at runtime). At every startup it fetches the latest `handler.py`, `start.sh`, and `pull_changes.py` from `raw.githubusercontent.com`, falls back to baked-in copies on network failure, runs `pull_changes.py`, copies karaoke changes to the venv site-packages, then `exec`s into `start.sh`.
-- **`handler.py`** — RunPod handler entry point. In pod mode runs a simple test invocation; in serverless mode registers with `runpod.serverless.start()`. Push changes here to deploy without rebuilding the image.
+- **`handler.py`** — Async RunPod handler with four actions routed via `event["input"]["action"]`. Push changes here to deploy without rebuilding the image. See **Handler API** below.
 - **`start.sh`** — Container startup script; branches on `MODE_TO_RUN`. Push changes here to deploy without rebuilding.
 - **`pull_changes.py`** — Run at container startup (via `bootstrap.sh`). Fetches files from the `kjstevo/karaoke-gen` fork that differ from upstream (`nomadkaraoke/karaoke-gen`) and saves them to `karaoke_gen_changes/`. Set `GITHUB_TOKEN` to avoid GitHub API rate limits (60 req/hr unauthenticated vs 5000 authenticated).
 - **`requirements.txt`** — Currently empty; add Python dependencies here (requires image rebuild).
@@ -51,6 +51,19 @@ The `start.sh` also starts nginx and optionally sets up SSH (`PUBLIC_KEY` env va
 ## Python environment inside the container
 
 A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed packages: `karaoke-gen[local-whisper]`, `runpod`, `torch==2.8.0+cu128`, `torchaudio==2.8.0+cu128`, `onnxruntime-gpu`, `yt-dlp`, `deno`, spaCy with `en_core_web_sm`.
+
+## Handler API
+
+All requests use the RunPod serverless `/run` or `/runsync` endpoints with `{"input": {"action": "<action>", ...}}`.
+
+| Action | Required fields | Behaviour |
+|--------|----------------|-----------|
+| `create` | `url`, `artist`, `title` | Launches `karaoke-gen -y --skip_transcription_review <url> <artist> <title>` in `/workspace`. Blocks until the process exits, streaming output to `/workspace/.jobs/{job_id}.json`. Returns `{job_id}`. **Queue serialises these.** |
+| `status` | `job_id` | Returns `{job_id, status, output}`. `status` is `running`, `ended_success`, or `ended_failure`. Immediate. |
+| `download` | `job_id` | Finds the lossless MP4 in `/workspace/Artist - Title/`, uploads to S3, returns `{job_id, url, filename}` with a presigned URL. Immediate. |
+| `finish` | `job_id` | Deletes `/workspace/Artist - Title/` and all contents. Returns `{job_id, status: "cleaned_up"}`. Immediate. |
+
+Job state is persisted to `/workspace/.jobs/{job_id}.json` on the network volume, so any worker can serve `status`/`download`/`finish` for jobs started on a different worker.
 
 ## Environment variables
 
@@ -68,6 +81,13 @@ A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed pac
 | `SKIP_CORRECTION` | `False` | Skip lyrics correction step |
 | `GITHUB_TOKEN` | *(none)* | GitHub PAT for `pull_changes.py` rate limits |
 | `CONCURRENCY_MODIFIER` | `1` | Serverless concurrency tuning |
+| `S3_BUCKET_NAME` | *(required for download)* | S3 bucket for MP4 uploads |
+| `S3_KEY_PREFIX` | `karaoke` | Key prefix inside the bucket |
+| `S3_PRESIGN_EXPIRY` | `3600` | Presigned URL lifetime in seconds |
+| `S3_ENDPOINT_URL` | *(none)* | Override for S3-compatible endpoints (e.g. RunPod's S3) |
+| `AWS_ACCESS_KEY_ID` | *(standard boto3)* | AWS / S3-compatible credentials |
+| `AWS_SECRET_ACCESS_KEY` | *(standard boto3)* | AWS / S3-compatible credentials |
+| `AWS_DEFAULT_REGION` | *(standard boto3)* | AWS region |
 
 ## Iteration workflow
 
