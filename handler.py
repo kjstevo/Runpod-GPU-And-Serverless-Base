@@ -13,7 +13,6 @@ DATA_DIR = Path("/workspace")
 JOBS_DIR = DATA_DIR / ".jobs"
 
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "vrp9g4opbn")
-S3_PREFIX = os.environ.get("S3_KEY_PREFIX", "karaoke")
 S3_PRESIGN_EXPIRY = int(os.environ.get("S3_PRESIGN_EXPIRY", "3600"))
 S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "https://s3api-us-il-1.runpod.io")
 
@@ -131,8 +130,7 @@ async def download_job(data: dict) -> dict:
         s3_kwargs["endpoint_url"] = S3_ENDPOINT_URL
 
     s3 = boto3.client("s3", **s3_kwargs)
-    relative = mp4.relative_to(DATA_DIR)
-    s3_key = f"{S3_PREFIX}/{relative}" if S3_PREFIX else str(relative)
+    s3_key = str(mp4.relative_to(DATA_DIR))
 
     url = s3.generate_presigned_url(
         "get_object",

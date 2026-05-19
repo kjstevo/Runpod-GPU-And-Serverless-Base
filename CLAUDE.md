@@ -60,7 +60,7 @@ All requests use the RunPod serverless `/run` or `/runsync` endpoints with `{"in
 |--------|----------------|-----------|
 | `create` | `url`, `artist`, `title` | Launches `karaoke-gen -y --skip_transcription_review <url> <artist> <title>` in `/workspace`. Blocks until the process exits, streaming output to `/workspace/.jobs/{job_id}.json`. Returns `{job_id}`. **Queue serialises these.** |
 | `status` | `job_id` | Returns `{job_id, status, output}`. `status` is `running`, `ended_success`, or `ended_failure`. Immediate. |
-| `download` | `job_id` | Finds the lossless MP4 in `/workspace/Artist - Title/`, derives its S3 key from its path relative to `/workspace` (prepended with `S3_KEY_PREFIX`), and returns `{job_id, url, filename}` with a presigned URL. No upload — the network volume is already S3-backed. Immediate. |
+| `download` | `job_id` | Finds the lossless MP4 in `/workspace/Artist - Title/`, uses its path relative to `/workspace` as the S3 key, and returns `{job_id, url, filename}` with a presigned URL. No upload — the network volume is already S3-backed. Immediate. |
 | `finish` | `job_id` | Deletes `/workspace/Artist - Title/` and all contents. Returns `{job_id, status: "cleaned_up"}`. Immediate. |
 
 Job state is persisted to `/workspace/.jobs/{job_id}.json` on the network volume, so any worker can serve `status`/`download`/`finish` for jobs started on a different worker.
@@ -81,10 +81,9 @@ Job state is persisted to `/workspace/.jobs/{job_id}.json` on the network volume
 | `SKIP_CORRECTION` | `False` | Skip lyrics correction step |
 | `GITHUB_TOKEN` | *(none)* | GitHub PAT for `pull_changes.py` rate limits |
 | `CONCURRENCY_MODIFIER` | `1` | Serverless concurrency tuning |
-| `S3_BUCKET_NAME` | *(required for download)* | S3 bucket for MP4 uploads |
-| `S3_KEY_PREFIX` | `karaoke` | Key prefix inside the bucket |
+| `S3_BUCKET_NAME` | `vrp9g4opbn` | S3 bucket (RunPod network volume) |
 | `S3_PRESIGN_EXPIRY` | `3600` | Presigned URL lifetime in seconds |
-| `S3_ENDPOINT_URL` | *(none)* | Override for S3-compatible endpoints (e.g. RunPod's S3) |
+| `S3_ENDPOINT_URL` | `https://s3api-us-il-1.runpod.io` | RunPod S3-compatible endpoint |
 | `AWS_ACCESS_KEY_ID` | *(standard boto3)* | AWS / S3-compatible credentials |
 | `AWS_SECRET_ACCESS_KEY` | *(standard boto3)* | AWS / S3-compatible credentials |
 | `AWS_DEFAULT_REGION` | *(standard boto3)* | AWS region |
