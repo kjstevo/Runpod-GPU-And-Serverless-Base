@@ -12,10 +12,10 @@ import runpod
 DATA_DIR = Path("/workspace")
 JOBS_DIR = DATA_DIR / ".jobs"
 
-S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "")
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "vrp9g4opbn")
 S3_PREFIX = os.environ.get("S3_KEY_PREFIX", "karaoke")
 S3_PRESIGN_EXPIRY = int(os.environ.get("S3_PRESIGN_EXPIRY", "3600"))
-S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL")
+S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "https://s3api-us-il-1.runpod.io")
 
 
 def _job_path(job_id: str) -> Path:
