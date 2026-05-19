@@ -60,7 +60,7 @@ All requests use the RunPod serverless `/run` or `/runsync` endpoints with `{"in
 |--------|----------------|-----------|
 | `create` | `url`, `artist`, `title` | Launches `karaoke-gen -y --skip_transcription_review <url> <artist> <title>` in `/workspace`. Blocks until the process exits, streaming output to `/workspace/.jobs/{job_id}.json`. Returns `{job_id}`. **Queue serialises these.** |
 | `status` | `job_id` | Returns `{job_id, status, output}`. `status` is `running`, `ended_success`, or `ended_failure`. Immediate. |
-| `download` | `job_id` | Finds the lossless MP4 in `/workspace/Artist - Title/`, uploads to S3, returns `{job_id, url, filename}` with a presigned URL. Immediate. |
+| `download` | `job_id` | Finds the lossless MP4 in `/workspace/Artist - Title/`, derives its S3 key from its path relative to `/workspace` (prepended with `S3_KEY_PREFIX`), and returns `{job_id, url, filename}` with a presigned URL. No upload — the network volume is already S3-backed. Immediate. |
 | `finish` | `job_id` | Deletes `/workspace/Artist - Title/` and all contents. Returns `{job_id, status: "cleaned_up"}`. Immediate. |
 
 Job state is persisted to `/workspace/.jobs/{job_id}.json` on the network volume, so any worker can serve `status`/`download`/`finish` for jobs started on a different worker.

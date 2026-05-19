@@ -131,12 +131,10 @@ async def download_job(data: dict) -> dict:
         s3_kwargs["endpoint_url"] = S3_ENDPOINT_URL
 
     s3 = boto3.client("s3", **s3_kwargs)
-    s3_key = f"{S3_PREFIX}/{job_id}/{mp4.name}" if S3_PREFIX else f"{job_id}/{mp4.name}"
+    relative = mp4.relative_to(DATA_DIR)
+    s3_key = f"{S3_PREFIX}/{relative}" if S3_PREFIX else str(relative)
 
-    await asyncio.to_thread(s3.upload_file, str(mp4), S3_BUCKET, s3_key)
-
-    url = await asyncio.to_thread(
-        s3.generate_presigned_url,
+    url = s3.generate_presigned_url(
         "get_object",
         Params={"Bucket": S3_BUCKET, "Key": s3_key},
         ExpiresIn=S3_PRESIGN_EXPIRY,
