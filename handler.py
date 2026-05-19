@@ -35,8 +35,8 @@ def _save_job(state: dict) -> None:
     tmp.rename(_job_path(state["job_id"]))
 
 
-def _output_dir(artist: str, title: str) -> Path:
-    return DATA_DIR / f"{artist} - {title}"
+def _workspace_subdirs() -> set[Path]:
+    return {p for p in DATA_DIR.iterdir() if p.is_dir() and not p.name.startswith(".")}
 
 
 def _find_lossless_mp4(directory: Path) -> Path | None:
@@ -60,6 +60,7 @@ async def create_job(data: dict) -> dict:
         "url": url,
         "artist": artist,
         "title": title,
+        "output_dir": None,
         "status": "running",
         "output": "",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -67,6 +68,7 @@ async def create_job(data: dict) -> dict:
     }
     _save_job(state)
 
+    before_dirs = _workspace_subdirs()
     cmd = ["karaoke-gen", "-y", "--skip_transcription_review", url, artist, title]
 
     try:
@@ -89,6 +91,10 @@ async def create_job(data: dict) -> dict:
         state["output"] = "".join(output_lines)
         state["status"] = "ended_success" if proc.returncode == 0 else "ended_failure"
         state["ended_at"] = datetime.now(timezone.utc).isoformat()
+
+        new_dirs = _workspace_subdirs() - before_dirs
+        if new_dirs:
+            state["output_dir"] = str(next(iter(new_dirs)))
 
     except Exception as e:
         state["output"] += f"\nError launching karaoke-gen: {e}"
@@ -117,7 +123,9 @@ async def download_job(data: dict) -> dict:
     if state is None:
         return {"error": f"Job {job_id!r} not found"}
 
-    output_dir = _output_dir(state["artist"], state["title"])
+    if not state.get("output_dir"):
+        return {"error": "Output directory not recorded for this job"}
+    output_dir = Path(state["output_dir"])
     mp4 = _find_lossless_mp4(output_dir)
     if mp4 is None:
         return {"error": f"No MP4 found in {output_dir}"}
@@ -147,7 +155,9 @@ async def finish_job(data: dict) -> dict:
     if state is None:
         return {"error": f"Job {job_id!r} not found"}
 
-    output_dir = _output_dir(state["artist"], state["title"])
+    if not state.get("output_dir"):
+        return {"error": "Output directory not recorded for this job"}
+    output_dir = Path(state["output_dir"])
     if output_dir.exists():
         await asyncio.to_thread(shutil.rmtree, output_dir)
 
