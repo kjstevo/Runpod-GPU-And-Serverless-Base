@@ -65,13 +65,10 @@ RUN rm ../start.sh
 COPY handler.py $WORKSPACE_DIR/handler.py
 COPY start.sh $WORKSPACE_DIR/start.sh
 COPY pull_changes.py $WORKSPACE_DIR/pull_changes.py
-RUN python3 $WORKSPACE_DIR/pull_changes.py
-RUN cp -R $WORKSPACE_DIR/karaoke_gen_changes/*  $WORKSPACE_DIR/venv/lib/python3.12/site-packages/
-# Make sure start.sh is executable
-RUN chmod +x start.sh
+COPY bootstrap.sh $WORKSPACE_DIR/bootstrap.sh
 
-# Make sure that the start.sh is in the path
-RUN ls -la $WORKSPACE_DIR/start.sh
+RUN chmod +x $WORKSPACE_DIR/start.sh && \
+    chmod +x $WORKSPACE_DIR/bootstrap.sh
 
 # depot build -t justinrunpod/pod-server-base:1.0 . --push --platform linux/amd64
-CMD $WORKSPACE_DIR/start.sh
+CMD $WORKSPACE_DIR/bootstrap.sh
