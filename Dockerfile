@@ -30,7 +30,7 @@ ENV PATH="/app/venv/bin:$PATH"
 COPY requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
+    pip install -I --no-cache-dir \
         requests \
         cryptography \
         karaoke-gen[local-whisper] \
@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir torch==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
     pip install --no-cache-dir torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
     pip uninstall -y onnxruntime && \
-    pip install --no-cache-dir onnxruntime-gpu
+    pip install -I --no-cache-dir onnxruntime-gpu
 
 RUN rm ../start.sh
 
