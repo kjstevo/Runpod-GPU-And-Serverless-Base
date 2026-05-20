@@ -56,10 +56,12 @@ A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed pac
 
 The install sequence in the Dockerfile has specific ordering constraints:
 
-1. **`cryptography` must be installed with `-I` (ignore-installed) before `karaoke-gen`** — the base image ships a version with missing metadata that causes dependency resolution to fail without the force-reinstall.
-2. **`yt-dlp` must be uninstalled before `karaoke-gen`**, then a pre-release version reinstalled afterward — `karaoke-gen` pins an incompatible version of `yt-dlp`.
+1. **`cryptography` must be installed with `-I` (ignore-installed) before `karaoke-gen`** — the base image ships a version with missing metadata that causes dependency resolution to fail without the force-reinstall. Only `cryptography` requires `-I`.
+2. **`yt-dlp` must be uninstalled *after* `karaoke-gen`**, then a pre-release version reinstalled — `karaoke-gen` pins an incompatible version of `yt-dlp`.
 3. **Torch packages (`torch`, `torchaudio` with CUDA) must be the final installs** — later packages can silently downgrade torch to a CPU-only build.
-4. **`onnxruntime` must be uninstalled and `onnxruntime-gpu` reinstalled as the last step** — installing `karaoke-gen` pulls in the CPU `onnxruntime`, which disables hardware acceleration. The explicit uninstall/reinstall restores GPU support.
+4. **`onnxruntime` must be uninstalled and `onnxruntime-gpu` reinstalled as the last step** — `karaoke-gen` pulls in the CPU `onnxruntime`, which disables hardware acceleration. The explicit uninstall/reinstall restores GPU support.
+
+The pip layer is split in two for build cache efficiency: stable heavy deps (karaoke-gen, torch, onnxruntime-gpu, etc.) in one layer, then `requirements.txt` in a separate layer so adding user dependencies doesn't invalidate the slow layer. BuildKit cache mounts (`--mount=type=cache,target=/root/.cache/pip`) reuse downloaded wheels across rebuilds.
 
 ## Handler API
 

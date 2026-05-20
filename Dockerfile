@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 ARG BASE_IMAGE=runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404
 FROM ${BASE_IMAGE}
 
@@ -27,23 +28,23 @@ RUN apt-get update --yes --quiet && \
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-COPY requirements.txt ./requirements.txt
-
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install -I --no-cache-dir \
-        requests \
-        cryptography \
-        karaoke-gen[local-whisper] \
-        runpod && \
-    pip install --no-cache-dir -r requirements.txt && \
+# Stable heavy deps — only re-runs when these packages or versions change
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -I cryptography && \
+    pip install karaoke-gen[local-whisper] runpod requests && \
     pip uninstall -y yt-dlp && \
     python3 -m spacy download en_core_web_sm && \
-    pip install -U --pre --no-cache-dir "yt-dlp[default]" && \
-    pip install -U --no-cache-dir deno && \
-    pip install --no-cache-dir torch==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
-    pip install --no-cache-dir torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install -U --pre "yt-dlp[default]" && \
+    pip install -U deno && \
+    pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
     pip uninstall -y onnxruntime && \
-    pip install -I --no-cache-dir onnxruntime-gpu
+    pip install onnxruntime-gpu
+
+# User deps — re-runs whenever requirements.txt changes
+COPY requirements.txt ./requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 RUN rm ../start.sh
 
