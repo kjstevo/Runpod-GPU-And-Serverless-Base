@@ -192,12 +192,27 @@ print("------- -------------------- -------")
 
 if mode_to_run == "pod":
     async def main():
-        if len(sys.argv) == 4:
-            _, url, artist, title = sys.argv
-            event = {"input": {"action": "create", "url": url, "artist": artist, "title": title}}
-        else:
-            print("Usage: python handler.py <url> <artist> <title>")
+        usage = (
+            "Usage:\n"
+            "  python handler.py create <url> <artist> <title>\n"
+            "  python handler.py status <job_id>\n"
+            "  python handler.py download <job_id>\n"
+            "  python handler.py finish <job_id>"
+        )
+        args = sys.argv[1:]
+        if not args:
+            print(usage)
             sys.exit(1)
+
+        action = args[0]
+        if action == "create" and len(args) == 4:
+            event = {"input": {"action": "create", "url": args[1], "artist": args[2], "title": args[3]}}
+        elif action in ("status", "download", "finish") and len(args) == 2:
+            event = {"input": {"action": action, "job_id": args[1]}}
+        else:
+            print(usage)
+            sys.exit(1)
+
         response = await handler(event)
         print(response)
 
