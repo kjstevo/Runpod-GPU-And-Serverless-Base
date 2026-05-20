@@ -52,6 +52,15 @@ The `start.sh` also starts nginx and optionally sets up SSH (`PUBLIC_KEY` env va
 
 A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed packages: `karaoke-gen[local-whisper]`, `runpod`, `torch==2.8.0+cu128`, `torchaudio==2.8.0+cu128`, `onnxruntime-gpu`, `yt-dlp`, `deno`, spaCy with `en_core_web_sm`.
 
+### Dockerfile pip install order (order matters)
+
+The install sequence in the Dockerfile has specific ordering constraints:
+
+1. **`cryptography` must be installed with `-I` (ignore-installed) before `karaoke-gen`** — the base image ships a version with missing metadata that causes dependency resolution to fail without the force-reinstall.
+2. **`yt-dlp` must be uninstalled before `karaoke-gen`**, then a pre-release version reinstalled afterward — `karaoke-gen` pins an incompatible version of `yt-dlp`.
+3. **Torch packages (`torch`, `torchaudio` with CUDA) must be the final installs** — later packages can silently downgrade torch to a CPU-only build.
+4. **`onnxruntime` must be uninstalled and `onnxruntime-gpu` reinstalled as the last step** — installing `karaoke-gen` pulls in the CPU `onnxruntime`, which disables hardware acceleration. The explicit uninstall/reinstall restores GPU support.
+
 ## Handler API
 
 All requests use the RunPod serverless `/run` or `/runsync` endpoints with `{"input": {"action": "<action>", ...}}`.
@@ -104,6 +113,11 @@ Job state is persisted to `/workspace/.jobs/{job_id}.json` on the network volume
 3. Push `handler.py` / `start.sh` changes to GitHub; restart the container to pick them up
 4. If dependencies changed, rebuild and push the image, then redeploy
 5. Switch to serverless by redeploying with `MODE_TO_RUN=serverless`
+
+## Notes
+
+- **Non-blocking startup**: Any custom scripts added to `start.sh` must not block the final `sleep infinity` (pod mode) or `python handler.py` (serverless mode) call.
+- **Image layer size**: The Dockerfile uses multi-line `RUN` commands with cleanup steps to minimize layer size — keep this pattern when adding new install steps.
 
 ## RunPod CLI
 
