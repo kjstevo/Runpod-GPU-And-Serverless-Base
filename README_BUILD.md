@@ -4,40 +4,40 @@
 
 ### PyTorch 2.0.1 - CUDA 11.8 (Original)
 ```bash
-docker build -t justinrunpod/pod-server-base:1.0-pytorch2.0.1-cuda11.8 \
+docker build -t kjstevo/dual-mode-worker:latest \
   --build-arg BASE_IMAGE=runpod/pytorch:2.0.1-py3.10-cuda11.8.0-devel-ubuntu22.04 \
   . --push --platform linux/amd64
 ```
 
 ### PyTorch 2.2.0 - CUDA 12.1
 ```bash
-docker build -t justinrunpod/pod-server-base:1.0-pytorch2.2.0-cuda12.1 \
+docker build -t kjstevo/dual-mode-worker:latest \
   --build-arg BASE_IMAGE=runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04 \
   . --push --platform linux/amd64
 ```
 
 ### PyTorch 2.4.0 - CUDA 12.4
 ```bash
-docker build -t justinrunpod/pod-server-base:1.0-pytorch2.4.0-cuda12.4 \
+docker build -t kjstevo/dual-mode-worker:latest \
   --build-arg BASE_IMAGE=runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04 \
   . --push --platform linux/amd64
 ```
 
 ### PyTorch 2.8.0 - CUDA 12.8 (Latest)
 ```bash
-docker build -t justinrunpod/pod-server-base:1.0-pytorch2.8.0-cuda12.8 \
+docker build -t kjstevo/dual-mode-worker:latest \
   --build-arg BASE_IMAGE=runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04 \
   . --push --platform linux/amd64
 ```
 
 ## Version Matrix
 
-| Tag Suffix | PyTorch | Python | CUDA | cuDNN | Ubuntu |
-|------------|---------|---------|-------|-------|---------|
-| pytorch2.0.1-cuda11.8 | 2.0.1 | 3.10 | 11.8.0 | Yes | 22.04 |
-| pytorch2.2.0-cuda12.1 | 2.2.0 | 3.10 | 12.1.1 | Yes | 22.04 |
-| pytorch2.4.0-cuda12.4 | 2.4.0 | 3.11 | 12.4.1 | Yes | 22.04 |
-| pytorch2.8.0-cuda12.8 | 2.8.0 | 3.11 | 12.8.1 | Yes | 22.04 |
+| PyTorch | Python | CUDA | cuDNN | Ubuntu |
+|---------|--------|------|-------|--------|
+| 2.0.1 | 3.10 | 11.8.0 | Yes | 22.04 |
+| 2.2.0 | 3.10 | 12.1.1 | Yes | 22.04 |
+| 2.4.0 | 3.11 | 12.4.1 | Yes | 22.04 |
+| 2.8.0 | 3.11 | 12.8.1 | Yes | 22.04 |
 
 ## Notes
 

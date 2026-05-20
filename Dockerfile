@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG BASE_IMAGE=runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404
+ARG BASE_IMAGE=runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 FROM ${BASE_IMAGE}
 
 ENV PYTHONUNBUFFERED=1
@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m spacy download en_core_web_sm && \
     pip install -U --pre "yt-dlp[default]" && \
     pip install -U deno && \
-    pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install torch==2.4.0+cu124 torchaudio==2.4.0+cu124 --index-url https://download.pytorch.org/whl/cu124 && \
     pip uninstall -y onnxruntime && \
     pip install onnxruntime-gpu
 

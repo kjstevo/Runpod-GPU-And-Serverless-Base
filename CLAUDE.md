@@ -11,20 +11,20 @@ A Docker base image for deploying workloads on RunPod — supporting both **GPU 
 Standard build and push (must be on a machine with Docker and `linux/amd64` support):
 
 ```bash
-docker build -t justinrunpod/pod-server-base:1.0 . --push --platform linux/amd64
+docker build -t kjstevo/dual-mode-worker:latest . --push --platform linux/amd64
 ```
 
 Using [depot](https://depot.dev) (faster cross-platform builds):
 
 ```bash
-depot build -t justinrunpod/pod-server-base:1.0 . --push --platform linux/amd64
+depot build -t kjstevo/dual-mode-worker:latest . --push --platform linux/amd64
 ```
 
 Override the base image:
 
 ```bash
 docker build --build-arg BASE_IMAGE=runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04 \
-  -t justinrunpod/pod-server-base:1.0-pytorch2.8.0-cuda12.8 . --push --platform linux/amd64
+  -t kjstevo/dual-mode-worker:latest . --push --platform linux/amd64
 ```
 
 See `README_BUILD.md` for the full version matrix (PyTorch 2.0.1–2.8.0 / CUDA 11.8–12.8).
@@ -50,7 +50,7 @@ The `start.sh` also starts nginx and optionally sets up SSH (`PUBLIC_KEY` env va
 
 ## Python environment inside the container
 
-A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed packages: `karaoke-gen[local-whisper]`, `runpod`, `torch==2.8.0+cu128`, `torchaudio==2.8.0+cu128`, `onnxruntime-gpu`, `yt-dlp`, `deno`, spaCy with `en_core_web_sm`.
+A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed packages: `karaoke-gen[local-whisper]`, `runpod`, `torch==2.4.0+cu124`, `torchaudio==2.4.0+cu124`, `onnxruntime-gpu`, `yt-dlp`, `deno`, spaCy with `en_core_web_sm`.
 
 ### Dockerfile pip install order (order matters)
 
