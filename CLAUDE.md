@@ -50,7 +50,7 @@ The `start.sh` also starts nginx and optionally sets up SSH (`PUBLIC_KEY` env va
 
 ## Python environment inside the container
 
-A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed packages: `karaoke-gen[local-whisper]`, `runpod`, `torch==2.4.0+cu124`, `torchaudio==2.4.0+cu124`, `onnxruntime-gpu`, `yt-dlp`, `deno`, spaCy with `en_core_web_sm`.
+A venv is created at `/app/venv` and activated via `PATH`. Key pre-installed packages: `karaoke-gen[local-whisper]`, `runpod`, `torch==2.8.0+cu128`, `torchaudio==2.8.0+cu128`, `onnxruntime-gpu`, `yt-dlp`, `deno`, spaCy with `en_core_web_sm`.
 
 ### Dockerfile pip install order (order matters)
 
