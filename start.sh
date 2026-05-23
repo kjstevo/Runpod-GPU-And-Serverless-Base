@@ -6,7 +6,7 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace}"
 
 # Configure nginx to proxy port 3000 → karaoke review server on 8000
 configure_review_proxy() {
-    cat > /etc/nginx/sites-enabled/review-proxy.conf << 'EOF'
+    cat > /etc/nginx/conf.d/review-proxy.conf << 'EOF'
 server {
     listen 3000;
     location / {
