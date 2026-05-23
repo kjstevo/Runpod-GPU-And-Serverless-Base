@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import os
 import shutil
@@ -6,6 +7,8 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 def _patch_karaoke_gen(workspace_dir: str = "/app") -> None:
@@ -72,15 +75,58 @@ def _find_lossless_mp4(directory: Path) -> Path | None:
     return max(mp4s, key=lambda f: f.stat().st_size)
 
 
+def _resolve_input(data: dict, job_id: str) -> tuple[str, Path | None]:
+    """Returns (source, temp_file_to_cleanup). Priority: file_path > file_data > url."""
+    if file_path := data.get("file_path"):
+        p = Path(file_path)
+        if not p.exists():
+            raise ValueError(f"file_path {file_path!r} does not exist")
+        size = p.stat().st_size
+        if size > MAX_FILE_SIZE:
+            raise ValueError(f"file_path exceeds 10 MB limit ({size} bytes)")
+        return str(p), None
+
+    if file_data := data.get("file_data"):
+        try:
+            raw = base64.b64decode(file_data)
+        except Exception as e:
+            raise ValueError(f"file_data is not valid base64: {e}")
+        if len(raw) > MAX_FILE_SIZE:
+            raise ValueError(f"Decoded file exceeds 10 MB limit ({len(raw)} bytes)")
+        ext = Path(data.get("filename", "input.mp3")).suffix or ".mp3"
+        tmp_dir = DATA_DIR / ".tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_file = tmp_dir / f"{job_id}{ext}"
+        tmp_file.write_bytes(raw)
+        return str(tmp_file), tmp_file
+
+    if url := data.get("url"):
+        return url, None
+
+    raise ValueError("One of 'url', 'file_data', or 'file_path' is required")
+
+
 async def create_job(data: dict) -> dict:
-    url = data["url"]
     artist = data["artist"]
     title = data["title"]
-
     job_id = str(uuid.uuid4())
+
+    try:
+        source, temp_file = _resolve_input(data, job_id)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    if data.get("file_path"):
+        source_type = "file_path"
+    elif data.get("file_data"):
+        source_type = "file_data"
+    else:
+        source_type = "url"
+
     state = {
         "job_id": job_id,
-        "url": url,
+        "source_type": source_type,
+        "source": data.get("filename", "input.mp3") if source_type == "file_data" else source,
         "artist": artist,
         "title": title,
         "output_dir": None,
@@ -92,7 +138,7 @@ async def create_job(data: dict) -> dict:
     _save_job(state)
 
     before_dirs = _workspace_subdirs()
-    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--skip_transcription_review", url, artist, title]
+    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--subtitle_offset_ms", "200", "--skip_transcription_review", source, artist, title]
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -123,6 +169,9 @@ async def create_job(data: dict) -> dict:
         state["output"] += f"\nError launching karaoke-gen: {e}"
         state["status"] = "ended_failure"
         state["ended_at"] = datetime.now(timezone.utc).isoformat()
+    finally:
+        if temp_file and temp_file.exists():
+            temp_file.unlink()
 
     _save_job(state)
     return {"job_id": job_id}
@@ -216,7 +265,7 @@ if mode_to_run == "pod":
     async def main():
         usage = (
             "Usage:\n"
-            "  python handler.py create <url> <artist> <title>\n"
+            "  python handler.py create <url|/local/path> <artist> <title>\n"
             "  python handler.py status <job_id>\n"
             "  python handler.py download <job_id>\n"
             "  python handler.py finish <job_id>"
@@ -228,7 +277,12 @@ if mode_to_run == "pod":
 
         action = args[0]
         if action == "create" and len(args) == 4:
-            event = {"input": {"action": "create", "url": args[1], "artist": args[2], "title": args[3]}}
+            source = args[1]
+            if source.startswith("http://") or source.startswith("https://"):
+                create_input = {"action": "create", "url": source, "artist": args[2], "title": args[3]}
+            else:
+                create_input = {"action": "create", "file_path": source, "artist": args[2], "title": args[3]}
+            event = {"input": create_input}
         elif action in ("status", "download", "finish") and len(args) == 2:
             event = {"input": {"action": action, "job_id": args[1]}}
         else:
