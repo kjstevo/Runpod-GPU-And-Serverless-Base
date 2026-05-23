@@ -70,7 +70,7 @@ async def create_job(data: dict) -> dict:
     _save_job(state)
 
     before_dirs = _workspace_subdirs()
-    cmd = ["karaoke-gen", "-y", "--skip_transcription_review", url, artist, title]
+    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--skip_transcription_review", url, artist, title]
 
     try:
         proc = await asyncio.create_subprocess_exec(

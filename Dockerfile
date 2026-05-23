@@ -5,7 +5,7 @@ FROM ${BASE_IMAGE}
 ENV PYTHONUNBUFFERED=1
 ENV WHISPER_LANGUAGE=en
 ENV WHISPER_CACHE_DIR=/workspace/models
-ENV WHISPER_MODEL_SIZE=large-v2
+ENV WHISPER_MODEL_SIZE=large-v3-turbo
 ENV ENABLE_LOCAL_WHISPER=True
 ENV SKIP_CORRECTION=False
 
@@ -25,8 +25,8 @@ RUN apt-get update --yes --quiet && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
+# RUN python3 -m venv /app/venv
+#ENV PATH="/app/venv/bin:$PATH"
 
 # Stable heavy deps — only re-runs when these packages or versions change
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -53,9 +53,7 @@ COPY handler.py $WORKSPACE_DIR/handler.py
 COPY start.sh $WORKSPACE_DIR/start.sh
 COPY pull_changes.py $WORKSPACE_DIR/pull_changes.py
 COPY bootstrap.sh $WORKSPACE_DIR/bootstrap.sh
+COPY style.json $WORKSPACE_DIR/style.json
+RUN chmod +x $WORKSPACE_DIR/bootstrap.sh $WORKSPACE_DIR/start.sh
 
-RUN chmod +x $WORKSPACE_DIR/start.sh && \
-    chmod +x $WORKSPACE_DIR/bootstrap.sh
-
-# depot build -t justinrunpod/pod-server-base:1.0 . --push --platform linux/amd64
 CMD $WORKSPACE_DIR/bootstrap.sh
