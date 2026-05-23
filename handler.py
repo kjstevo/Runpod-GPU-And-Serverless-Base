@@ -7,6 +7,28 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def _patch_karaoke_gen(workspace_dir: str = "/app") -> None:
+    changes_dir = Path(workspace_dir) / "karaoke_gen_changes" / "karaoke_gen"
+    if not changes_dir.is_dir():
+        return
+    try:
+        import karaoke_gen
+        install_dir = Path(karaoke_gen.__file__).parent
+    except ImportError:
+        print("Warning: karaoke_gen not importable, skipping patch")
+        return
+    print(f"--- Patching karaoke_gen at {install_dir} ---")
+    for src in changes_dir.rglob("*"):
+        if src.is_file():
+            dest = install_dir / src.relative_to(changes_dir)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+            print(f"  Patched: {dest.relative_to(install_dir)}")
+
+
+_patch_karaoke_gen(os.environ.get("WORKSPACE_DIR", "/app"))
+
 import boto3
 import runpod
 
