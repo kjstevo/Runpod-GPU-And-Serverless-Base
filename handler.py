@@ -10,28 +10,6 @@ from pathlib import Path
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-
-def _patch_karaoke_gen(workspace_dir: str = "/app") -> None:
-    changes_dir = Path(workspace_dir) / "karaoke_gen_changes" / "karaoke_gen"
-    if not changes_dir.is_dir():
-        return
-    try:
-        import karaoke_gen
-        install_dir = Path(karaoke_gen.__file__).parent
-    except ImportError:
-        print("Warning: karaoke_gen not importable, skipping patch")
-        return
-    print(f"--- Patching karaoke_gen at {install_dir} ---")
-    for src in changes_dir.rglob("*"):
-        if src.is_file():
-            dest = install_dir / src.relative_to(changes_dir)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest)
-            print(f"  Patched: {dest.relative_to(install_dir)}")
-
-
-_patch_karaoke_gen(os.environ.get("WORKSPACE_DIR", "/app"))
-
 import boto3
 import runpod
 
@@ -230,10 +208,19 @@ async def finish_job(data: dict) -> dict:
     if not state.get("output_dir"):
         return {"error": "Output directory not recorded for this job"}
     output_dir = Path(state["output_dir"])
+
+    mp4 = _find_lossless_mp4(output_dir)
+    if mp4 is None:
+        return {"error": f"No MP4 found in {output_dir}"}
+
+    finished_dir = DATA_DIR / "finished"
+    finished_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(shutil.copy2, mp4, finished_dir / mp4.name)
+
     if output_dir.exists():
         await asyncio.to_thread(shutil.rmtree, output_dir)
 
-    return {"job_id": job_id, "status": "cleaned_up"}
+    return {"job_id": job_id, "status": "cleaned_up", "saved_to": str(finished_dir / mp4.name)}
 
 
 async def handler(event):
