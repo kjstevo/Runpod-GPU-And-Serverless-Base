@@ -21,6 +21,17 @@ S3_PRESIGN_EXPIRY = int(os.environ.get("S3_PRESIGN_EXPIRY", "3600"))
 S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "https://s3api-us-il-1.runpod.io")
 
 
+def _make_s3_client():
+    kwargs = {"endpoint_url": S3_ENDPOINT_URL} if S3_ENDPOINT_URL else {}
+    if key_id := os.environ.get("AWS_ACCESS_KEY_ID"):
+        kwargs["aws_access_key_id"] = key_id
+    if secret := os.environ.get("AWS_SECRET_ACCESS_KEY"):
+        kwargs["aws_secret_access_key"] = secret
+    if region := os.environ.get("AWS_DEFAULT_REGION"):
+        kwargs["region_name"] = region
+    return boto3.client("s3", **kwargs)
+
+
 def _job_path(job_id: str) -> Path:
     return JOBS_DIR / f"{job_id}.json"
 
@@ -209,11 +220,7 @@ async def download_job(data: dict) -> dict:
     if not S3_BUCKET:
         return {"error": "S3_BUCKET_NAME env var not set"}
 
-    s3_kwargs = {}
-    if S3_ENDPOINT_URL:
-        s3_kwargs["endpoint_url"] = S3_ENDPOINT_URL
-
-    s3 = boto3.client("s3", **s3_kwargs)
+    s3 = _make_s3_client()
     s3_key = str(mp4.relative_to(DATA_DIR))
 
     url = s3.generate_presigned_url(
