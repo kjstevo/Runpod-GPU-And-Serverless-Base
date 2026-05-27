@@ -217,19 +217,8 @@ async def download_job(data: dict) -> dict:
     if mp4 is None:
         return {"error": f"No MP4 found in {output_dir}"}
 
-    if not S3_BUCKET:
-        return {"error": "S3_BUCKET_NAME env var not set"}
-
-    s3 = _make_s3_client()
     s3_key = str(mp4.relative_to(DATA_DIR))
-
-    url = s3.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": S3_BUCKET, "Key": s3_key},
-        ExpiresIn=S3_PRESIGN_EXPIRY,
-    )
-
-    return {"job_id": job_id, "url": url, "filename": mp4.name}
+    return {"job_id": job_id, "s3_key": s3_key, "filename": mp4.name}
 
 
 async def finish_job(data: dict) -> dict:

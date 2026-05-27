@@ -3,3 +3,4 @@
 !.github/workflows/**
 .vscode/*
 depot.json
+submit_karaoke.py
