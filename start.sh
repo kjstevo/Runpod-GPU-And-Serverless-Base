@@ -4,6 +4,14 @@ set -e  # Exit the script if any statement returns a non-true return value
 # Set workspace directory from env or default
 WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace}"
 
+# Set data directory (network volume mount) based on mode — can be overridden via env
+if [ "$MODE_TO_RUN" = "serverless" ]; then
+    export DATA_DIR="${DATA_DIR:-/runpod-worker}"
+else
+    export DATA_DIR="${DATA_DIR:-/workspace}"
+fi
+export WHISPER_CACHE_DIR="${WHISPER_CACHE_DIR:-${DATA_DIR}/models}"
+
 # Configure nginx to proxy port 3000 → karaoke review server on 8000
 configure_review_proxy() {
     cat > /etc/nginx/conf.d/review-proxy.conf << 'EOF'

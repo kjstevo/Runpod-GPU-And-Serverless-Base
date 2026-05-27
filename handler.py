@@ -13,7 +13,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 import boto3
 import runpod
 
-DATA_DIR = Path("/workspace")
+DATA_DIR = Path(os.environ.get("DATA_DIR", "/workspace"))
 JOBS_DIR = DATA_DIR / ".jobs"
 
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "vrp9g4opbn")
@@ -39,8 +39,33 @@ def _save_job(state: dict) -> None:
     tmp.rename(_job_path(state["job_id"]))
 
 
+_SYSTEM_DIRS = {
+    "models", "finished", "output", "yt-dlp", "karaoke_gen_changes",
+    "WhisperHallu", "WhisperTimeSync", "venv",
+}
+
+
 def _workspace_subdirs() -> set[Path]:
     return {p for p in DATA_DIR.iterdir() if p.is_dir() and not p.name.startswith(".")}
+
+
+def _find_output_dir(new_dirs: set[Path], artist: str, title: str) -> Path | None:
+    # 1. Exact artist - title match (most reliable)
+    exact = DATA_DIR / f"{artist} - {title}"
+    if exact in new_dirs:
+        return exact
+
+    # 2. Any new dir that already contains an MP4
+    with_mp4 = [d for d in new_dirs if any(d.glob("*.mp4"))]
+    if with_mp4:
+        return with_mp4[0]
+
+    # 3. Any new dir that isn't a known system directory
+    candidates = [d for d in new_dirs if d.name not in _SYSTEM_DIRS]
+    if candidates:
+        return candidates[0]
+
+    return None
 
 
 def _find_lossless_mp4(directory: Path) -> Path | None:
@@ -140,8 +165,9 @@ async def create_job(data: dict) -> dict:
         state["ended_at"] = datetime.now(timezone.utc).isoformat()
 
         new_dirs = _workspace_subdirs() - before_dirs
-        if new_dirs:
-            state["output_dir"] = str(next(iter(new_dirs)))
+        output_dir = _find_output_dir(new_dirs, artist, title)
+        if output_dir:
+            state["output_dir"] = str(output_dir)
 
     except Exception as e:
         state["output"] += f"\nError launching karaoke-gen: {e}"
