@@ -6,7 +6,7 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace}"
 
 # Set data directory (network volume mount) based on mode — can be overridden via env
 if [ "$MODE_TO_RUN" = "serverless" ]; then
-    export DATA_DIR="${DATA_DIR:-/runpod-worker}"
+    export DATA_DIR="${DATA_DIR:-/runpod-volume}"
 else
     export DATA_DIR="${DATA_DIR:-/workspace}"
 fi
