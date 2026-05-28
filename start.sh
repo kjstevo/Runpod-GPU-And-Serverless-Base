@@ -11,7 +11,7 @@ else
     export DATA_DIR="${DATA_DIR:-/workspace}"
 fi
 export WHISPER_CACHE_DIR="${WHISPER_CACHE_DIR:-${DATA_DIR}/models}"
-
+pip install --no-cache-dir git+https://github.com/kjstevo/karaoke-gen.git
 # Configure nginx to proxy port 3000 → karaoke review server on 8000
 configure_review_proxy() {
     cat > /etc/nginx/conf.d/review-proxy.conf << 'EOF'
