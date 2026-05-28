@@ -120,6 +120,28 @@ def _resolve_input(data: dict, job_id: str) -> tuple[str, Path | None]:
     raise ValueError("One of 'url', 'file_data', or 'file_path' is required")
 
 
+def _resolve_lyrics(data: dict, job_id: str) -> tuple[str | None, Path | None]:
+    """Returns (lyrics_path, temp_file_to_cleanup) or (None, None) if no lyrics provided."""
+    if lyrics_path := data.get("lyrics_file_path"):
+        p = Path(lyrics_path)
+        if not p.exists():
+            raise ValueError(f"lyrics_file_path {lyrics_path!r} does not exist")
+        return str(p), None
+
+    if lyrics_data := data.get("lyrics_file_data"):
+        try:
+            raw = base64.b64decode(lyrics_data)
+        except Exception as e:
+            raise ValueError(f"lyrics_file_data is not valid base64: {e}")
+        tmp_dir = DATA_DIR / ".tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_file = tmp_dir / f"{job_id}_lyrics.txt"
+        tmp_file.write_bytes(raw)
+        return str(tmp_file), tmp_file
+
+    return None, None
+
+
 async def create_job(data: dict) -> dict:
     artist = data["artist"]
     title = data["title"]
@@ -127,6 +149,7 @@ async def create_job(data: dict) -> dict:
 
     try:
         source, temp_file = _resolve_input(data, job_id)
+        lyrics_path, lyrics_temp_file = _resolve_lyrics(data, job_id)
     except ValueError as e:
         return {"error": str(e)}
 
@@ -152,7 +175,10 @@ async def create_job(data: dict) -> dict:
     _save_job(state)
 
     before_dirs = _workspace_subdirs()
-    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--subtitle_offset_ms", "-300", "--skip_transcription_review", source, artist, title]
+    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--subtitle_offset_ms", "-300", "--skip_transcription_review"]
+    if lyrics_path:
+        cmd += ["--lyrics_file", lyrics_path]
+    cmd += [source, artist, title]
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -187,6 +213,8 @@ async def create_job(data: dict) -> dict:
     finally:
         if temp_file and temp_file.exists():
             temp_file.unlink()
+        if lyrics_temp_file and lyrics_temp_file.exists():
+            lyrics_temp_file.unlink()
 
     _save_job(state)
     return {"job_id": job_id}
@@ -274,7 +302,7 @@ if mode_to_run == "pod":
     async def main():
         usage = (
             "Usage:\n"
-            "  python handler.py create <url|/local/path> <artist> <title>\n"
+            "  python handler.py create <url|/local/path> <artist> <title> [/path/to/lyrics.txt]\n"
             "  python handler.py status <job_id>\n"
             "  python handler.py download <job_id>\n"
             "  python handler.py finish <job_id>"
@@ -285,12 +313,14 @@ if mode_to_run == "pod":
             sys.exit(1)
 
         action = args[0]
-        if action == "create" and len(args) == 4:
+        if action == "create" and len(args) in (4, 5):
             source = args[1]
             if source.startswith("http://") or source.startswith("https://"):
                 create_input = {"action": "create", "url": source, "artist": args[2], "title": args[3]}
             else:
                 create_input = {"action": "create", "file_path": source, "artist": args[2], "title": args[3]}
+            if len(args) == 5:
+                create_input["lyrics_file_path"] = args[4]
             event = {"input": create_input}
         elif action in ("status", "download", "finish") and len(args) == 2:
             event = {"input": {"action": action, "job_id": args[1]}}
