@@ -167,6 +167,7 @@ async def create_job(data: dict) -> dict:
         "artist": artist,
         "title": title,
         "output_dir": None,
+        "pod_id": os.environ.get("RUNPOD_POD_ID", ""),
         "status": "running",
         "output": "",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -230,6 +231,7 @@ async def get_status(data: dict) -> dict:
         return {"error": f"Job {job_id!r} not found"}
     return {
         "job_id": job_id,
+        "pod_id": state.get("pod_id", ""),
         "status": state["status"],
         "output": state["output"],
     }

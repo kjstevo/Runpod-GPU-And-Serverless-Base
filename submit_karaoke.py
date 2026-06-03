@@ -12,11 +12,13 @@ import argparse
 import base64
 import configparser
 import json
+import re
 import shutil
 import subprocess
 import sys
 import time
 import uuid
+import webbrowser
 from pathlib import Path
 
 import boto3
@@ -125,10 +127,13 @@ def submit_job(input_file: Path, artist: str, title: str, our_job_id: str, lyric
     return runpod_job_id
 
 
+_LOCALHOST_URL_RE = re.compile(r'https?://localhost[^\s]*')
+
 def poll_until_done(runpod_job_id: str, our_job_id: str, interval: int = 30) -> dict:
     log(f"Streaming output every 5s, checking RunPod status every {interval}s…")
     last_output_len = 0
     last_runpod_check = time.time() - interval  # check immediately on first pass
+    browser_opened = False
 
     while True:
         # Stream karaoke-gen output
@@ -140,6 +145,15 @@ def poll_until_done(runpod_job_id: str, our_job_id: str, interval: int = 30) -> 
                 for line in new_text.splitlines():
                     print(f"  {line}".encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding),
                           flush=True)
+                    if not browser_opened and _LOCALHOST_URL_RE.search(line):
+                        pod_id = status_result.get("pod_id", "")
+                        if pod_id:
+                            review_url = f"https://{pod_id}-8000.proxy.runpod.net/en/app/jobs/local/review"
+                            log(f"Opening review: {review_url}")
+                            webbrowser.open(review_url)
+                            browser_opened = True
+                        else:
+                            log("WARNING: karaoke-gen wants review but RUNPOD_POD_ID is not set")
                 last_output_len = len(output)
         except Exception:
             pass  # job file may not exist yet if worker hasn't started
