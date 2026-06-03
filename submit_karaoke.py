@@ -46,11 +46,28 @@ S3_SECRET    = _cfg["runpods3"]["aws_secret_access_key"]
 
 DOWNLOAD_DIR  = Path.home() / "Downloads"
 MAX_FILE_SIZE = 10 * 1024 * 1024
+
+_s3 = boto3.client(
+    "s3",
+    endpoint_url=S3_ENDPOINT,
+    aws_access_key_id=S3_KEY_ID,
+    aws_secret_access_key=S3_SECRET,
+    region_name="us-il-1",
+    config=Config(signature_version="s3v4"),
+)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def read_job_from_s3(job_id: str) -> dict | None:
+    try:
+        obj = _s3.get_object(Bucket=S3_BUCKET, Key=f".jobs/{job_id}.json")
+        return json.loads(obj["Body"].read())
+    except Exception:
+        return None
 
 
 AUDIO_EXTS = {".mp3", ".m4a", ".opus", ".ogg", ".flac", ".wav", ".aac", ".webm"}
@@ -136,9 +153,9 @@ def poll_until_done(runpod_job_id: str, our_job_id: str, interval: int = 30) -> 
     browser_opened = False
 
     while True:
-        # Stream karaoke-gen output
+        # Stream karaoke-gen output (read job file directly from S3 — no new worker)
         try:
-            status_result = call_action("status", our_job_id)
+            status_result = read_job_from_s3(our_job_id) or {}
             output = status_result.get("output", "")
             if len(output) > last_output_len:
                 new_text = output[last_output_len:]
@@ -220,7 +237,7 @@ def main():
         sys.exit(1)
 
     # Confirm final job status
-    status_result = call_action("status", our_job_id)
+    status_result = read_job_from_s3(our_job_id) or {}
     job_status = status_result.get("status", "unknown")
     log(f"Job status: {job_status}")
     if job_status != "ended_success":
@@ -238,20 +255,11 @@ def main():
     filename = dl["filename"]
     log(f"File: {filename}  (s3_key: {s3_key})")
 
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=S3_KEY_ID,
-        aws_secret_access_key=S3_SECRET,
-        region_name="us-il-1",
-        config=Config(signature_version="s3v4"),
-    )
-
     dest = DOWNLOAD_DIR / filename
     log(f"Downloading to {dest}")
     for attempt in range(1, 7):
         try:
-            s3.download_file(S3_BUCKET, s3_key, str(dest))
+            _s3.download_file(S3_BUCKET, s3_key, str(dest))
             break
         except Exception as e:
             if attempt == 6:

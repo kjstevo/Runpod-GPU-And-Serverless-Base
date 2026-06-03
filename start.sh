@@ -11,28 +11,11 @@ else
     export DATA_DIR="${DATA_DIR:-/workspace}"
 fi
 export WHISPER_CACHE_DIR="${WHISPER_CACHE_DIR:-${DATA_DIR}/models}"
-pip install --no-cache-dir git+https://github.com/kjstevo/karaoke-gen.git
-# Configure nginx to proxy port 3000 → karaoke review server on 8000
-configure_review_proxy() {
-    cat > /etc/nginx/conf.d/review-proxy.conf << 'EOF'
-server {
-    listen 3000;
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 3600;
-    }
-}
-EOF
-}
+pip install --no-input -I "karaoke-gen[local-whisper] @ git+https://github.com/kjstevo/karaoke-gen.git@worktree-Experimental-lyric-sync"
 
 # Start nginx service
 start_nginx() {
     echo "Starting Nginx service..."
-    configure_review_proxy
     service nginx start
 }
 
