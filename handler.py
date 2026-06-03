@@ -176,7 +176,7 @@ async def create_job(data: dict) -> dict:
     _save_job(state)
 
     before_dirs = _workspace_subdirs()
-    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--subtitle_offset_ms", "-300", "--skip_transcription_review"]
+    cmd = ["karaoke-gen", "-y", "--style_params_json", "/app/style.json", "--subtitle_offset_ms", "-300"]
     if lyrics_path:
         cmd += ["--lyrics_file", lyrics_path]
     cmd += [source, artist, title]
