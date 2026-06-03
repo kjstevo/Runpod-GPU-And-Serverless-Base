@@ -11,8 +11,6 @@ else
     export DATA_DIR="${DATA_DIR:-/workspace}"
 fi
 export WHISPER_CACHE_DIR="${WHISPER_CACHE_DIR:-${DATA_DIR}/models}"
-pip install --no-input -I "karaoke-gen[local-whisper] @ git+https://github.com/kjstevo/karaoke-gen.git@worktree-Experimental-lyric-sync"
-
 # Start nginx service
 start_nginx() {
     echo "Starting Nginx service..."
