@@ -145,7 +145,7 @@ def _resolve_lyrics(data: dict, job_id: str) -> tuple[str | None, Path | None]:
 async def create_job(data: dict) -> dict:
     artist = data["artist"]
     title = data["title"]
-    job_id = str(uuid.uuid4())
+    job_id = data.get("job_id") or str(uuid.uuid4())
 
     try:
         source, temp_file = _resolve_input(data, job_id)
@@ -189,12 +189,15 @@ async def create_job(data: dict) -> dict:
         )
 
         output_lines = []
+        last_save = asyncio.get_event_loop().time()
         async for line in proc.stdout:
             text = line.decode("utf-8", errors="replace")
             output_lines.append(text)
-            if len(output_lines) % 10 == 0:
+            now = asyncio.get_event_loop().time()
+            if len(output_lines) % 10 == 0 or (now - last_save) > 5:
                 state["output"] = "".join(output_lines)
                 _save_job(state)
+                last_save = now
 
         await proc.wait()
         state["output"] = "".join(output_lines)
