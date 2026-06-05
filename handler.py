@@ -281,20 +281,21 @@ async def finish_job(data: dict) -> dict:
     return {"job_id": job_id, "status": "cleaned_up", "saved_to": str(finished_dir / mp4.name)}
 
 
-async def handler(event):
-    data = event.get("input", {})
+async def handler(job):
+    data = job.get("input", {})
     action = data.get("action")
 
     if action == "create":
-        return await create_job_stream(data)
+        async for chunk in create_job_stream(data):
+            yield chunk
     elif action == "status":
-        return await get_status(data)
+        yield await get_status(data)
     elif action == "download":
-        return await download_job(data)
+        yield await download_job(data)
     elif action == "finish":
-        return await finish_job(data)
+        yield await finish_job(data)
     else:
-        return {
+        yield {
             "error": f"Unknown action: {action!r}",
             "valid_actions": ["create", "status", "download", "finish"],
         }
@@ -336,12 +337,16 @@ if mode_to_run == "pod":
             print(usage)
             sys.exit(1)
 
-        response = await handler(event)
-        print(response)
+        async for chunk in handler(event):
+            if chunk.get("type") == "output":
+                print(chunk["line"], end="", flush=True)
+            else:
+                print(chunk)
 
     asyncio.run(main())
 else:
     runpod.serverless.start({
         "handler": handler,
+        "return_aggregate_stream": True,
         "concurrency_modifier": lambda current: 1,
     })
