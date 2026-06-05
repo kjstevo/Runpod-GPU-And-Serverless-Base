@@ -184,7 +184,7 @@ def poll_stream(runpod_job_id: str, our_job_id: str) -> dict:
 
         status = data.get("status", "UNKNOWN")
         if status == "COMPLETED":
-            return {}
+            return {"type": "done", "status": "ended_success"}
         if status in ("FAILED", "CANCELLED", "TIMED_OUT"):
             log(f"RunPod job ended: {status}")
             log(json.dumps(data, indent=2))
