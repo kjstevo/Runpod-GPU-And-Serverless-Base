@@ -209,6 +209,12 @@ async def create_job_stream(data: dict):
 
         new_dirs = _workspace_subdirs() - before_dirs
         output_dir = _find_output_dir(new_dirs, artist, title)
+        if output_dir is None:
+            # karaoke-gen may have written into a pre-existing directory (e.g. a
+            # previous job left it behind); check the expected path directly.
+            exact = DATA_DIR / f"{artist} - {title}"
+            if exact.is_dir():
+                output_dir = exact
         if output_dir:
             state["output_dir"] = str(output_dir)
 
