@@ -146,51 +146,49 @@ def submit_job(input_file: Path, artist: str, title: str, our_job_id: str, lyric
 
 _LOCALHOST_URL_RE = re.compile(r'https?://localhost[^\s]*')
 
-def poll_until_done(runpod_job_id: str, our_job_id: str, interval: int = 30) -> dict:
-    log(f"Streaming output every 5s, checking RunPod status every {interval}s…")
-    last_output_len = 0
-    last_runpod_check = time.time() - interval  # check immediately on first pass
+
+def poll_stream(runpod_job_id: str, our_job_id: str) -> dict:
+    """Poll /stream/{id} until job completes. Returns the final done/error chunk."""
+    url = f"{RUNPOD_BASE}/stream/{runpod_job_id}"
     browser_opened = False
 
     while True:
-        # Stream karaoke-gen output (read job file directly from S3 — no new worker)
-        try:
-            status_result = read_job_from_s3(our_job_id) or {}
-            output = status_result.get("output", "")
-            if len(output) > last_output_len:
-                new_text = output[last_output_len:]
-                for line in new_text.splitlines():
-                    print(f"  {line}".encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding),
-                          flush=True)
-                    if not browser_opened and _LOCALHOST_URL_RE.search(line):
-                        pod_id = status_result.get("pod_id", "")
-                        if pod_id:
-                            review_url = f"https://{pod_id}-8000.proxy.runpod.net/en/app/jobs/local/review"
-                            log(f"Opening review: {review_url}")
-                            webbrowser.open(review_url)
-                            browser_opened = True
-                        else:
-                            log("WARNING: karaoke-gen wants review but RUNPOD_POD_ID is not set")
-                last_output_len = len(output)
-        except Exception:
-            pass  # job file may not exist yet if worker hasn't started
+        r = requests.get(url, headers=HEADERS, timeout=15)
+        r.raise_for_status()
+        data = r.json()
 
-        # Check RunPod status on interval
-        now = time.time()
-        if now - last_runpod_check >= interval:
-            r = requests.get(f"{RUNPOD_BASE}/status/{runpod_job_id}", headers=HEADERS, timeout=15)
-            r.raise_for_status()
-            data = r.json()
-            status = data.get("status", "UNKNOWN")
-            log(f"RunPod status: {status}")
-            last_runpod_check = now
+        for item in data.get("stream", []):
+            chunk = item.get("output", {})
+            if not isinstance(chunk, dict):
+                continue
+            chunk_type = chunk.get("type")
+            if chunk_type == "output":
+                line = chunk.get("line", "")
+                print(
+                    f"  {line}".encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding),
+                    end="",
+                    flush=True,
+                )
+                if not browser_opened and _LOCALHOST_URL_RE.search(line):
+                    s3_state = read_job_from_s3(our_job_id) or {}
+                    pod_id = s3_state.get("pod_id", "")
+                    if pod_id:
+                        review_url = f"https://{pod_id}-8000.proxy.runpod.net/en/app/jobs/local/review"
+                        log(f"Opening review: {review_url}")
+                        webbrowser.open(review_url)
+                        browser_opened = True
+                    else:
+                        log("WARNING: karaoke-gen wants review but pod_id unknown")
+            elif chunk_type in ("done", "error"):
+                return chunk
 
-            if status == "COMPLETED":
-                return data
-            if status in ("FAILED", "CANCELLED", "TIMED_OUT"):
-                log(f"Job ended with: {status}")
-                log(json.dumps(data, indent=2))
-                sys.exit(1)
+        status = data.get("status", "UNKNOWN")
+        if status == "COMPLETED":
+            return {}
+        if status in ("FAILED", "CANCELLED", "TIMED_OUT"):
+            log(f"RunPod job ended: {status}")
+            log(json.dumps(data, indent=2))
+            sys.exit(1)
 
         time.sleep(5)
 
@@ -229,16 +227,13 @@ def main():
     runpod_job_id = submit_job(input_file, args.artist, args.title, our_job_id, lyrics_file)
 
     # 4. Poll until karaoke-gen finishes, streaming output along the way
-    result = poll_until_done(runpod_job_id, our_job_id, interval=30)
+    done_chunk = poll_stream(runpod_job_id, our_job_id)
 
-    output = result.get("output", {})
-    if "error" in output:
-        log(f"Handler error: {output['error']}")
+    if done_chunk.get("type") == "error":
+        log(f"Handler error: {done_chunk.get('message', 'unknown error')}")
         sys.exit(1)
 
-    # Confirm final job status
-    status_result = read_job_from_s3(our_job_id) or {}
-    job_status = status_result.get("status", "unknown")
+    job_status = done_chunk.get("status") or (read_job_from_s3(our_job_id) or {}).get("status", "unknown")
     log(f"Job status: {job_status}")
     if job_status != "ended_success":
         log("ERROR: karaoke-gen did not succeed.")
