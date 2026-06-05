@@ -53,7 +53,7 @@ _s3 = boto3.client(
     aws_access_key_id=S3_KEY_ID,
     aws_secret_access_key=S3_SECRET,
     region_name="us-il-1",
-    config=Config(signature_version="s3v4"),
+    config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
 )
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -256,7 +256,10 @@ def main():
     log(f"Downloading to {dest}")
     for attempt in range(1, 7):
         try:
-            _s3.download_file(S3_BUCKET, s3_key, str(dest))
+            obj = _s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
+            with open(dest, "wb") as f:
+                for chunk in obj["Body"].iter_chunks(chunk_size=1024 * 1024):
+                    f.write(chunk)
             break
         except Exception as e:
             if attempt == 6:
