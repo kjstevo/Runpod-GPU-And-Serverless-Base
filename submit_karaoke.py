@@ -200,7 +200,11 @@ def call_action(action: str, job_id: str) -> dict:
     r = requests.post(f"{RUNPOD_BASE}/runsync", headers=HEADERS, json=payload, timeout=60)
     r.raise_for_status()
     data = r.json()
-    return data.get("output", data)
+    output = data.get("output", data)
+    # RunPod collects generator yields into a list; unwrap single-element results
+    if isinstance(output, list) and len(output) == 1:
+        return output[0]
+    return output
 
 
 def main():
