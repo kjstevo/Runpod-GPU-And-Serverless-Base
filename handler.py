@@ -285,7 +285,7 @@ async def handler(event):
     action = data.get("action")
 
     if action == "create":
-        return await create_job(data)
+        return await create_job_stream({}, data)
     elif action == "status":
         return await get_status(data)
     elif action == "download":
