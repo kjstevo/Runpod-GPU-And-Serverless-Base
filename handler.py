@@ -142,7 +142,7 @@ def _resolve_lyrics(data: dict, job_id: str) -> tuple[str | None, Path | None]:
     return None, None
 
 
-async def create_job_stream(job: dict, data: dict):
+async def create_job_stream(data: dict):
     artist = data["artist"]
     title = data["title"]
     job_id = data.get("job_id") or str(uuid.uuid4())
@@ -151,7 +151,8 @@ async def create_job_stream(job: dict, data: dict):
         source, temp_file = _resolve_input(data, job_id)
         lyrics_path, lyrics_temp_file = _resolve_lyrics(data, job_id)
     except ValueError as e:
-        return {"error": str(e)}
+        yield {"type": "error", "message": str(e)}
+        return
 
     if data.get("file_path"):
         source_type = "file_path"
@@ -285,7 +286,7 @@ async def handler(event):
     action = data.get("action")
 
     if action == "create":
-        return await create_job_stream({}, data)
+        return await create_job_stream(data)
     elif action == "status":
         return await get_status(data)
     elif action == "download":
