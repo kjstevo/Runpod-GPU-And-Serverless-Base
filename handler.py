@@ -142,7 +142,7 @@ def _resolve_lyrics(data: dict, job_id: str) -> tuple[str | None, Path | None]:
     return None, None
 
 
-async def create_job(data: dict) -> dict:
+async def create_job_stream(job: dict, data: dict):
     artist = data["artist"]
     title = data["title"]
     job_id = data.get("job_id") or str(uuid.uuid4())
@@ -194,6 +194,7 @@ async def create_job(data: dict) -> dict:
         async for line in proc.stdout:
             text = line.decode("utf-8", errors="replace")
             output_lines.append(text)
+            yield {"type": "output", "line": text}
             now = asyncio.get_event_loop().time()
             if len(output_lines) % 10 == 0 or (now - last_save) > 5:
                 state["output"] = "".join(output_lines)
@@ -214,6 +215,7 @@ async def create_job(data: dict) -> dict:
         state["output"] += f"\nError launching karaoke-gen: {e}"
         state["status"] = "ended_failure"
         state["ended_at"] = datetime.now(timezone.utc).isoformat()
+        yield {"type": "output", "line": f"\nError launching karaoke-gen: {e}\n"}
     finally:
         if temp_file and temp_file.exists():
             temp_file.unlink()
@@ -221,7 +223,7 @@ async def create_job(data: dict) -> dict:
             lyrics_temp_file.unlink()
 
     _save_job(state)
-    return {"job_id": job_id}
+    yield {"type": "done", "job_id": job_id, "status": state["status"]}
 
 
 async def get_status(data: dict) -> dict:
