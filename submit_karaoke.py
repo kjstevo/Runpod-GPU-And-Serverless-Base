@@ -2,7 +2,7 @@
 End-to-end karaoke job runner:
   1. Download audio from YouTube via yt-dlp
   2. Submit create job to RunPod serverless (file_data, base64)
-  3. Poll RunPod /status until COMPLETED or FAILED
+  3. Poll RunPod /stream until COMPLETED or FAILED, streaming output in real time
   4. Download the finished MP4 from S3
   5. Call finish action
   6. Delete the original yt-dlp download
@@ -189,6 +189,8 @@ def poll_stream(runpod_job_id: str, our_job_id: str) -> dict:
             log(f"RunPod job ended: {status}")
             log(json.dumps(data, indent=2))
             sys.exit(1)
+        if status not in ("IN_PROGRESS",):
+            log(f"RunPod job status: {status} — waiting…")
 
         time.sleep(5)
 
