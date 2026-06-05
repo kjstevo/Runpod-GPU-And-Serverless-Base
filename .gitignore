@@ -4,3 +4,4 @@
 .vscode/*
 depot.json
 credentials.txt
+.worktrees/
