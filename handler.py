@@ -142,7 +142,7 @@ def _resolve_lyrics(data: dict, job_id: str) -> tuple[str | None, Path | None]:
     return None, None
 
 
-async def create_job(data: dict) -> dict:
+async def create_job_stream(data: dict):
     artist = data["artist"]
     title = data["title"]
     job_id = data.get("job_id") or str(uuid.uuid4())
@@ -151,7 +151,8 @@ async def create_job(data: dict) -> dict:
         source, temp_file = _resolve_input(data, job_id)
         lyrics_path, lyrics_temp_file = _resolve_lyrics(data, job_id)
     except ValueError as e:
-        return {"error": str(e)}
+        yield {"type": "error", "message": str(e)}
+        return
 
     if data.get("file_path"):
         source_type = "file_path"
@@ -194,6 +195,7 @@ async def create_job(data: dict) -> dict:
         async for line in proc.stdout:
             text = line.decode("utf-8", errors="replace")
             output_lines.append(text)
+            yield {"type": "output", "line": text}
             now = asyncio.get_event_loop().time()
             if len(output_lines) % 10 == 0 or (now - last_save) > 5:
                 state["output"] = "".join(output_lines)
@@ -214,6 +216,7 @@ async def create_job(data: dict) -> dict:
         state["output"] += f"\nError launching karaoke-gen: {e}"
         state["status"] = "ended_failure"
         state["ended_at"] = datetime.now(timezone.utc).isoformat()
+        yield {"type": "output", "line": f"\nError launching karaoke-gen: {e}\n"}
     finally:
         if temp_file and temp_file.exists():
             temp_file.unlink()
@@ -221,7 +224,7 @@ async def create_job(data: dict) -> dict:
             lyrics_temp_file.unlink()
 
     _save_job(state)
-    return {"job_id": job_id}
+    yield {"type": "done", "job_id": job_id, "status": state["status"]}
 
 
 async def get_status(data: dict) -> dict:
@@ -278,20 +281,21 @@ async def finish_job(data: dict) -> dict:
     return {"job_id": job_id, "status": "cleaned_up", "saved_to": str(finished_dir / mp4.name)}
 
 
-async def handler(event):
-    data = event.get("input", {})
+async def handler(job):
+    data = job.get("input", {})
     action = data.get("action")
 
     if action == "create":
-        return await create_job(data)
+        async for chunk in create_job_stream(data):
+            yield chunk
     elif action == "status":
-        return await get_status(data)
+        yield await get_status(data)
     elif action == "download":
-        return await download_job(data)
+        yield await download_job(data)
     elif action == "finish":
-        return await finish_job(data)
+        yield await finish_job(data)
     else:
-        return {
+        yield {
             "error": f"Unknown action: {action!r}",
             "valid_actions": ["create", "status", "download", "finish"],
         }
@@ -333,12 +337,16 @@ if mode_to_run == "pod":
             print(usage)
             sys.exit(1)
 
-        response = await handler(event)
-        print(response)
+        async for chunk in handler(event):
+            if chunk.get("type") == "output":
+                print(chunk["line"], end="", flush=True)
+            else:
+                print(chunk)
 
     asyncio.run(main())
 else:
     runpod.serverless.start({
         "handler": handler,
+        "return_aggregate_stream": True,
         "concurrency_modifier": lambda current: 1,
     })
